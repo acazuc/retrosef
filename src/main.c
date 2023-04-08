@@ -396,6 +396,13 @@ static int create_shmimg(struct window *window)
 	window->shminfo.shmaddr = window->image->data;
 	window->shminfo.readOnly = False;
 	XShmAttach(window->display, &window->shminfo);
+	XFlush(window->display);
+	if (shmctl(window->shminfo.shmid, IPC_RMID, NULL) == -1)
+	{
+		fprintf(stderr, "%s: shmctl: %s\n", window->progname,
+		        strerror(errno));
+		return 1;
+	}
 	return 0;
 }
 
@@ -512,12 +519,6 @@ static int setup_window(const char *progname, struct window *window)
 	if (create_shmimg(window))
 		return 1;
 	XMapWindow(window->display, window->window);
-	XFlush(window->display);
-	if (shmctl(window->shminfo.shmid, IPC_RMID, NULL) == -1)
-	{
-		fprintf(stderr, "%s: shmctl: %s\n", progname, strerror(errno));
-		return 1;
-	}
 	return 0;
 }
 
