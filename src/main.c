@@ -7,6 +7,7 @@
 #include <X11/extensions/XShm.h>
 
 #include <libretro.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -522,6 +523,38 @@ static int setup_window(const char *progname, struct window *window)
 	return 0;
 }
 
+static void copy_scaled(struct window *window)
+{
+	for (size_t y = 0; y < g_core->system_av_info.geometry.base_height; ++y)
+	{
+		for (size_t yy = 0; yy < window->scale; ++yy)
+		{
+			for (size_t x = 0; x < g_core->system_av_info.geometry.base_width; ++x)
+			{
+				for (size_t xx = 0; xx < window->scale; ++xx)
+				{
+					uint8_t *dst_data = (uint8_t*)window->image->data;
+					uint32_t dst_x = x * window->scale + xx;
+					uint32_t dst_y = y * window->scale + yy;
+					uint32_t *dst = (uint32_t*)&dst_data[dst_y * window->image->bytes_per_line + dst_x * 4];
+					uint32_t *src = (uint32_t*)&g_core->video_buf[(g_core->system_av_info.geometry.base_width * y + x) * 4];
+					*dst = *src;
+				}
+			}
+		}
+	}
+}
+
+static void copy_unscaled(struct window *window)
+{
+	for (size_t y = 0; y < g_core->system_av_info.geometry.base_height; ++y)
+	{
+		uint8_t *dst = &((uint8_t*)window->image->data)[y * window->image->bytes_per_line];
+		uint8_t *src = &g_core->video_buf[g_core->system_av_info.geometry.base_width * 4 * y];
+		memcpy(dst, src, g_core->system_av_info.geometry.base_width * 4);
+	}
+}
+
 int main(int argc, char **argv)
 {
 #ifdef __eklat__
@@ -556,37 +589,16 @@ int main(int argc, char **argv)
 
 	uint64_t last_frame = nanotime();
 	uint64_t frame_duration = 1000000000 / core.system_av_info.timing.fps;
+	uint64_t last_fps = nanotime();
+	uint64_t fps = 0;
 	while (1)
 	{
 		handle_events(&window);
 		core.run();
 		if (window.scale > 1)
-		{
-			for (size_t y = 0; y < core.system_av_info.geometry.base_height; ++y)
-			{
-				for (size_t yy = 0; yy < window.scale; ++yy)
-				{
-					for (size_t x = 0; x < core.system_av_info.geometry.base_width; ++x)
-					{
-						for (size_t xx = 0; xx < window.scale; ++xx)
-						{
-							uint32_t *dst = (uint32_t*)&((uint8_t*)window.image->data)[(y * window.scale + yy) * window.image->bytes_per_line + (x * window.scale + xx) * 4];
-							uint32_t *src = (uint32_t*)&core.video_buf[(core.system_av_info.geometry.base_width * y + x) * 4];
-							*dst = *src;
-						}
-					}
-				}
-			}
-		}
+			copy_scaled(&window);
 		else
-		{
-			for (size_t y = 0; y < core.system_av_info.geometry.base_height; ++y)
-			{
-				uint8_t *dst = &((uint8_t*)window.image->data)[y * window.image->bytes_per_line];
-				uint8_t *src = &core.video_buf[core.system_av_info.geometry.base_width * 4 * y];
-				memcpy(dst, src, core.system_av_info.geometry.base_width * 4);
-			}
-		}
+			copy_unscaled(&window);
 		uint32_t dst_width = core.system_av_info.geometry.base_width * window.scale;
 		uint32_t dst_height = core.system_av_info.geometry.base_height * window.scale;
 		uint32_t dst_x = (window.width - dst_width) / 2;
@@ -611,6 +623,15 @@ int main(int argc, char **argv)
 		else
 		{
 			last_frame = current;
+		}
+		fps++;
+		if (current - last_fps >= 1000000000)
+		{
+#if 0
+			printf("fps: %" PRIu64 "\n", fps);
+#endif
+			last_fps = current;
+			fps = 0;
 		}
 	}
 	return EXIT_SUCCESS;
