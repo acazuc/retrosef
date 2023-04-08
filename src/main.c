@@ -369,8 +369,8 @@ static int create_shmimg(struct window *window)
 	uint32_t width = g_core->system_av_info.geometry.base_width * window->scale;
 	uint32_t height = g_core->system_av_info.geometry.base_height * window->scale;
 	window->image = XShmCreateImage(window->display, window->vi.visual, 24,
-	                        ZPixmap, NULL, &window->shminfo,
-	                        (width + 3) & ~3, height);
+	                                ZPixmap, NULL, &window->shminfo,
+	                                (width + 3) & ~3, height);
 	if (!window->image)
 	{
 		fprintf(stderr, "%s: failed to create image\n",
@@ -397,7 +397,6 @@ static int create_shmimg(struct window *window)
 	window->shminfo.shmaddr = window->image->data;
 	window->shminfo.readOnly = False;
 	XShmAttach(window->display, &window->shminfo);
-	XFlush(window->display);
 	if (shmctl(window->shminfo.shmid, IPC_RMID, NULL) == -1)
 	{
 		fprintf(stderr, "%s: shmctl: %s\n", window->progname,
@@ -606,7 +605,6 @@ int main(int argc, char **argv)
 		XShmPutImage(window.display, window.window, window.gc,
 		             window.image, 0, 0, dst_x, dst_y,
 		             dst_width, dst_height, False);
-		XFlush(window.display);
 		uint64_t current = nanotime();
 		if (window.vsync)
 		{
