@@ -605,6 +605,7 @@ int main(int argc, char **argv)
 			copy_scaled(&window);
 		else
 			copy_unscaled(&window);
+		XSync(window.display, 0);
 		uint32_t dst_width = core.system_av_info.geometry.base_width * window.scale;
 		uint32_t dst_height = core.system_av_info.geometry.base_height * window.scale;
 		uint32_t dst_x = (window.width - dst_width) / 2;
