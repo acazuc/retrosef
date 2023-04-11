@@ -492,6 +492,7 @@ static int setup_window(const char *progname, struct window *window)
 		fprintf(stderr, "%s: failed to open display\n", progname);
 		return 1;
 	}
+	XSynchronize(window->display, 0);
 	window->root = XRootWindow(window->display, 0);
 	window->screen = DefaultScreen(window->display);
 	if (!XMatchVisualInfo(window->display, window->screen, 24, TrueColor,
@@ -519,38 +520,44 @@ static int setup_window(const char *progname, struct window *window)
 	if (create_shmimg(window))
 		return 1;
 	XMapWindow(window->display, window->window);
+	XFlush(window->display);
 	return 0;
 }
 
 static void copy_scaled(struct window *window)
 {
+	uint32_t *dst = (uint32_t*)window->image->data;
+	uint32_t *src = (uint32_t*)g_core->video_buf;
 	for (size_t y = 0; y < g_core->system_av_info.geometry.base_height; ++y)
 	{
 		for (size_t yy = 0; yy < window->scale; ++yy)
 		{
+			uint32_t *line_src = src;
+			uint32_t *line_dst = dst;
 			for (size_t x = 0; x < g_core->system_av_info.geometry.base_width; ++x)
 			{
 				for (size_t xx = 0; xx < window->scale; ++xx)
 				{
-					uint8_t *dst_data = (uint8_t*)window->image->data;
-					uint32_t dst_x = x * window->scale + xx;
-					uint32_t dst_y = y * window->scale + yy;
-					uint32_t *dst = (uint32_t*)&dst_data[dst_y * window->image->bytes_per_line + dst_x * 4];
-					uint32_t *src = (uint32_t*)&g_core->video_buf[(g_core->system_av_info.geometry.base_width * y + x) * 4];
-					*dst = *src;
+					*line_dst = *line_src;
+					line_dst++;
 				}
+				line_src++;
 			}
+			dst += window->image->bytes_per_line / 4;
 		}
+		src += g_core->system_av_info.geometry.base_width;
 	}
 }
 
 static void copy_unscaled(struct window *window)
 {
+	uint8_t *dst = (uint8_t*)window->image->data;
+	uint8_t *src = g_core->video_buf;
 	for (size_t y = 0; y < g_core->system_av_info.geometry.base_height; ++y)
 	{
-		uint8_t *dst = &((uint8_t*)window->image->data)[y * window->image->bytes_per_line];
-		uint8_t *src = &g_core->video_buf[g_core->system_av_info.geometry.base_width * 4 * y];
 		memcpy(dst, src, g_core->system_av_info.geometry.base_width * 4);
+		dst += window->image->bytes_per_line;
+		src += g_core->system_av_info.geometry.base_width * 4;
 	}
 }
 
