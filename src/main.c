@@ -3,6 +3,7 @@
 
 #include <X11/keysym.h>
 #include <X11/Xutil.h>
+#include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/extensions/XShm.h>
 
@@ -508,6 +509,11 @@ static int setup_window(const char *progname, struct window *window)
 	                               window->vi.depth,
 	                               InputOutput, window->vi.visual,
 	                               CWEventMask, &swa);
+	char name[256];
+	snprintf(name, sizeof(name), "retrosef - %s",
+	         g_core->system_info.library_name);
+	XChangeProperty(window->display, window->window, XA_WM_NAME, XA_STRING,
+	                8, PropModeReplace, (uint8_t*)name, strlen(name));
 	XGCValues gc_values;
 	gc_values.foreground = 0;
 	window->gc = XCreateGC(window->display, window->window,
