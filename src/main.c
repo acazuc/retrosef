@@ -493,7 +493,6 @@ static int setup_window(const char *progname, struct window *window)
 		fprintf(stderr, "%s: failed to open display\n", progname);
 		return 1;
 	}
-	XSynchronize(window->display, 0);
 	window->root = XRootWindow(window->display, 0);
 	window->screen = DefaultScreen(window->display);
 	if (!XMatchVisualInfo(window->display, window->screen, 24, TrueColor,
@@ -527,6 +526,7 @@ static int setup_window(const char *progname, struct window *window)
 		return 1;
 	XMapWindow(window->display, window->window);
 	XFlush(window->display);
+	XSynchronize(window->display, False);
 	return 0;
 }
 
@@ -611,7 +611,7 @@ int main(int argc, char **argv)
 			copy_scaled(&window);
 		else
 			copy_unscaled(&window);
-		XSync(window.display, 0);
+		XSync(window.display, False);
 		uint32_t dst_width = core.system_av_info.geometry.base_width * window.scale;
 		uint32_t dst_height = core.system_av_info.geometry.base_height * window.scale;
 		uint32_t dst_x = (window.width - dst_width) / 2;
