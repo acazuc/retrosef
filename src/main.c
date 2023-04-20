@@ -459,6 +459,7 @@ static void handle_configure(struct window *window, XConfigureEvent *event)
 	window->scale = scale;
 	XShmDetach(window->display, &window->shminfo);
 	shmdt(window->image->data);
+	window->image->data = NULL;
 	XDestroyImage(window->image);
 	if (create_shmimg(window))
 		exit(EXIT_FAILURE);
@@ -498,7 +499,6 @@ static int setup_window(const char *progname, struct window *window)
 		fprintf(stderr, "%s: failed to open display\n", progname);
 		return 1;
 	}
-	XSynchronize(window->display, 0);
 	window->root = XRootWindow(window->display, 0);
 	window->screen = DefaultScreen(window->display);
 	if (!XMatchVisualInfo(window->display, window->screen, 24, TrueColor,
@@ -509,11 +509,12 @@ static int setup_window(const char *progname, struct window *window)
 	}
 	XSetWindowAttributes swa;
 	swa.event_mask = KeyPressMask | KeyReleaseMask | StructureNotifyMask;
+	swa.bit_gravity = CenterGravity;
 	window->window = XCreateWindow(window->display, window->root, 0, 0,
 	                               window->width, window->height, 0,
 	                               window->vi.depth,
 	                               InputOutput, window->vi.visual,
-	                               CWEventMask, &swa);
+	                               CWEventMask | CWBitGravity, &swa);
 	char name[256];
 	snprintf(name, sizeof(name), "retrosef - %s",
 	         g_core->system_info.library_name);
@@ -532,6 +533,7 @@ static int setup_window(const char *progname, struct window *window)
 		return 1;
 	XMapWindow(window->display, window->window);
 	XFlush(window->display);
+	XSynchronize(window->display, False);
 #ifdef __eklat__
 	window->snd_fd = open("/dev/snd0", O_WRONLY);
 	if (window->snd_fd == -1)
@@ -621,7 +623,6 @@ int main(int argc, char **argv)
 			copy_scaled(&window);
 		else
 			copy_unscaled(&window);
-		XSync(window.display, 0);
 		uint32_t dst_width = core.system_av_info.geometry.base_width * window.scale;
 		uint32_t dst_height = core.system_av_info.geometry.base_height * window.scale;
 		uint32_t dst_x = (window.width - dst_width) / 2;
@@ -629,6 +630,7 @@ int main(int argc, char **argv)
 		XShmPutImage(window.display, window.window, window.gc,
 		             window.image, 0, 0, dst_x, dst_y,
 		             dst_width, dst_height, False);
+		XSync(window.display, False);
 #ifdef __eklat__
 		if (window.snd_fd != -1)
 			write(window.snd_fd, core.audio_buf, g_core->audio_pos * 4);
