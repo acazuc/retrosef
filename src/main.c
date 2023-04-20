@@ -504,11 +504,12 @@ static int setup_window(const char *progname, struct window *window)
 	}
 	XSetWindowAttributes swa;
 	swa.event_mask = KeyPressMask | KeyReleaseMask | StructureNotifyMask;
+	swa.bit_gravity = CenterGravity;
 	window->window = XCreateWindow(window->display, window->root, 0, 0,
 	                               window->width, window->height, 0,
 	                               window->vi.depth,
 	                               InputOutput, window->vi.visual,
-	                               CWEventMask, &swa);
+	                               CWEventMask | CWBitGravity, &swa);
 	char name[256];
 	snprintf(name, sizeof(name), "retrosef - %s",
 	         g_core->system_info.library_name);
