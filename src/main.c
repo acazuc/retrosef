@@ -454,6 +454,7 @@ static void handle_configure(struct window *window, XConfigureEvent *event)
 	window->scale = scale;
 	XShmDetach(window->display, &window->shminfo);
 	shmdt(window->image->data);
+	window->image->data = NULL;
 	XDestroyImage(window->image);
 	if (create_shmimg(window))
 		exit(EXIT_FAILURE);
