@@ -613,7 +613,6 @@ int main(int argc, char **argv)
 			copy_scaled(&window);
 		else
 			copy_unscaled(&window);
-		XSync(window.display, False);
 		uint32_t dst_width = core.system_av_info.geometry.base_width * window.scale;
 		uint32_t dst_height = core.system_av_info.geometry.base_height * window.scale;
 		uint32_t dst_x = (window.width - dst_width) / 2;
@@ -621,6 +620,7 @@ int main(int argc, char **argv)
 		XShmPutImage(window.display, window.window, window.gc,
 		             window.image, 0, 0, dst_x, dst_y,
 		             dst_width, dst_height, False);
+		XSync(window.display, False);
 		uint64_t current = nanotime();
 		if (window.vsync)
 		{
