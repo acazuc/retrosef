@@ -54,6 +54,7 @@ struct libretro_core
 	void *handle;
 	uint8_t *video_buf;
 	uint8_t *audio_buf;
+	size_t audio_pos;
 	struct retro_system_info system_info;
 	struct retro_system_av_info system_av_info;
 	struct retro_game_info game_info;
@@ -99,6 +100,9 @@ struct window
 	GC gc;
 	XImage *image;
 	XShmSegmentInfo shminfo;
+#ifdef __eklat__
+	int snd_fd;
+#endif
 };
 
 static struct libretro_core *g_core;
@@ -186,10 +190,11 @@ static void audio_sample(int16_t left, int16_t right)
 
 static size_t audio_sample_batch(const int16_t *data, size_t frames)
 {
-	(void)data;
-	(void)frames;
-	/* XXX */
-	return 0;
+	if (g_core->audio_pos + frames >= g_core->system_av_info.timing.sample_rate)
+		return 0;
+	memcpy(g_core->audio_buf, data, frames * 4);
+	g_core->audio_pos += frames;
+	return frames;
 }
 
 static void input_poll(void)
@@ -332,7 +337,7 @@ while (0)
 		fprintf(stderr, "%s: malloc: %s\n", progname, strerror(errno));
 		return EXIT_FAILURE;
 	}
-	core->audio_buf = malloc(core->system_av_info.timing.sample_rate * 2);
+	core->audio_buf = malloc(core->system_av_info.timing.sample_rate * 2 * 2);
 	if (!core->audio_buf)
 	{
 		fprintf(stderr, "%s: malloc: %s\n", progname, strerror(errno));
@@ -454,7 +459,6 @@ static void handle_configure(struct window *window, XConfigureEvent *event)
 	window->scale = scale;
 	XShmDetach(window->display, &window->shminfo);
 	shmdt(window->image->data);
-	window->image->data = NULL;
 	XDestroyImage(window->image);
 	if (create_shmimg(window))
 		exit(EXIT_FAILURE);
@@ -494,6 +498,7 @@ static int setup_window(const char *progname, struct window *window)
 		fprintf(stderr, "%s: failed to open display\n", progname);
 		return 1;
 	}
+	XSynchronize(window->display, 0);
 	window->root = XRootWindow(window->display, 0);
 	window->screen = DefaultScreen(window->display);
 	if (!XMatchVisualInfo(window->display, window->screen, 24, TrueColor,
@@ -504,12 +509,11 @@ static int setup_window(const char *progname, struct window *window)
 	}
 	XSetWindowAttributes swa;
 	swa.event_mask = KeyPressMask | KeyReleaseMask | StructureNotifyMask;
-	swa.bit_gravity = CenterGravity;
 	window->window = XCreateWindow(window->display, window->root, 0, 0,
 	                               window->width, window->height, 0,
 	                               window->vi.depth,
 	                               InputOutput, window->vi.visual,
-	                               CWEventMask | CWBitGravity, &swa);
+	                               CWEventMask, &swa);
 	char name[256];
 	snprintf(name, sizeof(name), "retrosef - %s",
 	         g_core->system_info.library_name);
@@ -528,7 +532,11 @@ static int setup_window(const char *progname, struct window *window)
 		return 1;
 	XMapWindow(window->display, window->window);
 	XFlush(window->display);
-	XSynchronize(window->display, False);
+#ifdef __eklat__
+	window->snd_fd = open("/dev/snd0", O_WRONLY);
+	if (window->snd_fd == -1)
+		fprintf(stderr, "%s: open: %s\n", progname, strerror(errno));
+#endif
 	return 0;
 }
 
@@ -613,6 +621,7 @@ int main(int argc, char **argv)
 			copy_scaled(&window);
 		else
 			copy_unscaled(&window);
+		XSync(window.display, 0);
 		uint32_t dst_width = core.system_av_info.geometry.base_width * window.scale;
 		uint32_t dst_height = core.system_av_info.geometry.base_height * window.scale;
 		uint32_t dst_x = (window.width - dst_width) / 2;
@@ -620,7 +629,11 @@ int main(int argc, char **argv)
 		XShmPutImage(window.display, window.window, window.gc,
 		             window.image, 0, 0, dst_x, dst_y,
 		             dst_width, dst_height, False);
-		XSync(window.display, False);
+#ifdef __eklat__
+		if (window.snd_fd != -1)
+			write(window.snd_fd, core.audio_buf, g_core->audio_pos * 4);
+#endif
+		g_core->audio_pos = 0;
 		uint64_t current = nanotime();
 		if (window.vsync)
 		{
