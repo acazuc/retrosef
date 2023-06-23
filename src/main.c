@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <dlfcn.h>
 #include <time.h>
+#include <zlib.h>
 
 typedef void (*retro_init_t)(void);
 typedef void (*retro_deinit_t)(void);
@@ -213,9 +214,53 @@ static int16_t input_state(unsigned port, unsigned device, unsigned index,
 	return !!(g_core->keys[id / 8] & (1 << (id % 8)));
 }
 
+static uint8_t *read_gz_rom(const char *progname, const char *file,
+                            size_t *rom_size)
+{
+	gzFile gzfile;
+	uint8_t *data = NULL;
+
+	gzfile = gzopen(file, "rb");
+	if (!gzfile)
+	{
+		fprintf(stderr, "%s: gzopen: %s\n", progname, strerror(errno));
+		return NULL;
+	}
+	*rom_size = 0;
+	while (1)
+	{
+		uint8_t *newdata = realloc(data, *rom_size + 4096);
+		if (!newdata)
+		{
+			fprintf(stderr, "%s: malloc: %s\n", progname,
+			        strerror(errno));
+			goto err;
+		}
+		data = newdata;
+		int rd = gzread(gzfile, &data[*rom_size], 4096);
+		if (rd < 0)
+		{
+			fprintf(stderr, "%s: gzread failed\n", progname);
+			goto err;
+		}
+		if (!rd)
+			break;
+		*rom_size += rd;
+	}
+	gzclose(gzfile);
+	return data;
+
+err:
+	gzclose(gzfile);
+	free(data);
+	return NULL;
+}
+
 static uint8_t *read_rom(const char *progname, const char *file,
                          size_t *rom_size)
 {
+	if (strlen(file) >= 3 && !strcmp(&file[strlen(file) - 3], ".gz"))
+		return read_gz_rom(progname, file, rom_size);
 	uint8_t *data = NULL;
 	FILE *fp = fopen(file, "r");
 	if (!fp)

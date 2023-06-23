@@ -1,4 +1,4 @@
-AC_INIT([retrosef], [1.0])
+AC_INIT([retrosef],[1.0])
 
 AC_CONFIG_SRCDIR([src])
 AC_CONFIG_AUX_DIR([build-aux])
@@ -8,7 +8,6 @@ AM_INIT_AUTOMAKE([-Wall foreign])
 
 AC_PROG_CC
 AM_PROG_AR
-AM_PROG_LIBTOOL
 
 LT_INIT
 
