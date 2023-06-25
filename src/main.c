@@ -229,7 +229,7 @@ static uint8_t *read_gz_rom(const char *progname, const char *file,
 	*rom_size = 0;
 	while (1)
 	{
-		uint8_t *newdata = realloc(data, *rom_size + 4096);
+		uint8_t *newdata = realloc(data, *rom_size + 1024 * 1024);
 		if (!newdata)
 		{
 			fprintf(stderr, "%s: malloc: %s\n", progname,
@@ -237,7 +237,7 @@ static uint8_t *read_gz_rom(const char *progname, const char *file,
 			goto err;
 		}
 		data = newdata;
-		int rd = gzread(gzfile, &data[*rom_size], 4096);
+		int rd = gzread(gzfile, &data[*rom_size], 1024 * 1024);
 		if (rd < 0)
 		{
 			fprintf(stderr, "%s: gzread failed\n", progname);
@@ -271,14 +271,14 @@ static uint8_t *read_rom(const char *progname, const char *file,
 	*rom_size = 0;
 	while (1)
 	{
-		uint8_t *newdata = realloc(data, *rom_size + 4096);
+		uint8_t *newdata = realloc(data, *rom_size + 1024 * 1024);
 		if (!newdata)
 		{
 			fprintf(stderr, "%s: malloc: %s\n", progname, strerror(errno));
 			goto err;
 		}
 		data = newdata;
-		size_t ret = fread(&data[*rom_size], 1, 4096, fp);
+		size_t ret = fread(&data[*rom_size], 1, 1024 * 1024, fp);
 		if (ferror(fp))
 		{
 			fprintf(stderr, "%s: read: %s\n", progname, strerror(errno));
