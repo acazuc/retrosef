@@ -587,6 +587,42 @@ static int setup_window(const char *progname, struct window *window)
 	return 0;
 }
 
+#define COPY_SCALEDX(scale) \
+static void copy_scaled_##scale(struct window *window) \
+{ \
+	uint32_t *dst = (uint32_t*)window->image->data; \
+	uint32_t *src = (uint32_t*)g_core->video_buf; \
+	for (size_t y = 0; y < g_core->system_av_info.geometry.base_height; ++y) \
+	{ \
+		for (size_t yy = 0; yy < scale; ++yy) \
+		{ \
+			uint32_t *line_src = src; \
+			uint32_t *line_dst = dst; \
+			for (size_t x = 0; x < g_core->system_av_info.geometry.base_width; ++x) \
+			{ \
+				for (size_t xx = 0; xx < scale; ++xx) \
+				{ \
+					*line_dst = *line_src; \
+					line_dst++; \
+				} \
+				line_src++; \
+			} \
+			dst += window->image->bytes_per_line / 4; \
+		} \
+		src += g_core->system_av_info.geometry.base_width; \
+	} \
+}
+
+COPY_SCALEDX(2);
+COPY_SCALEDX(3);
+COPY_SCALEDX(4);
+COPY_SCALEDX(5);
+COPY_SCALEDX(6);
+COPY_SCALEDX(7);
+COPY_SCALEDX(8);
+COPY_SCALEDX(9);
+COPY_SCALEDX(10);
+
 static void copy_scaled(struct window *window)
 {
 	uint32_t *dst = (uint32_t*)window->image->data;
@@ -664,10 +700,42 @@ int main(int argc, char **argv)
 	{
 		handle_events(&window);
 		core.run();
-		if (window.scale > 1)
-			copy_scaled(&window);
-		else
-			copy_unscaled(&window);
+		switch (window.scale)
+		{
+			case 1:
+				copy_unscaled(&window);
+				break;
+			case 2:
+				copy_scaled_2(&window);
+				break;
+			case 3:
+				copy_scaled_3(&window);
+				break;
+			case 4:
+				copy_scaled_4(&window);
+				break;
+			case 5:
+				copy_scaled_5(&window);
+				break;
+			case 6:
+				copy_scaled_6(&window);
+				break;
+			case 7:
+				copy_scaled_7(&window);
+				break;
+			case 8:
+				copy_scaled_8(&window);
+				break;
+			case 9:
+				copy_scaled_9(&window);
+				break;
+			case 10:
+				copy_scaled_10(&window);
+				break;
+			default:
+				copy_scaled(&window);
+				break;
+		}
 		uint32_t dst_width = core.system_av_info.geometry.base_width * window.scale;
 		uint32_t dst_height = core.system_av_info.geometry.base_height * window.scale;
 		uint32_t dst_x = (window.width - dst_width) / 2;
